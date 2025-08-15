@@ -2,35 +2,54 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]  # Jab bhi 'main' branch mein code push hoga
+    branches: [ main ]  # Runs when code is pushed to main branch
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest  # GitHub ka Linux machine use karega
-
+    runs-on: ubuntu-latest
+    
     steps:
-      # Step 1: GitHub se code download karein
-      - name: Checkout Code
+      # Step 1: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Docker Image build karein
-      - name: Build Docker Image
+      # Step 2: Build Docker image
+      - name: Build Docker image
         run: docker build -t my-app .
-
-      # Step 3: Tests run karein
-      - name: Run Tests
+        
+      # Step 3: Run tests
+      - name: Run tests
         run: docker run my-app npm test
 
   deploy-to-staging:
-    needs: build-and-test  # Pehle build-and-test complete hona chahiye
+    needs: build-and-test
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout Code
+      # Step 1: Checkout code (optional for deploy)
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy to Staging (Simulated)
+      # Step 2: Login to Docker Hub (if pushing images)
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # Step 3: Push Docker image
+      - name: Push Docker image
         run: |
-          echo "Yahan aam taur par deployment hoti hai"
-          echo "Example: docker-compose up, kubectl apply, etc."
-          echo "Deployment successful!"
+          docker tag my-app ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest
+
+      # Step 4: Deploy to Amazon Linux via SSH
+      - name: Deploy to Amazon Linux via SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            -i <(echo "${{ secrets.SSH_PRIVATE_KEY }}") \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.STAGING_SERVER_IP }} \
+            "docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest && \
+             docker stop my-app || true && \
+             docker rm my-app || true && \
+             docker run -d -p 80:3000 --name my-app ${{ secrets.DOCKER_HUB_USERNAME }}/my-app:latest"
