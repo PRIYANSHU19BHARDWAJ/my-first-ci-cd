@@ -1,0 +1,36 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]  # Jab bhi 'main' branch mein code push hoga
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest  # GitHub ka Linux machine use karega
+
+    steps:
+      # Step 1: GitHub se code download karein
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Docker Image build karein
+      - name: Build Docker Image
+        run: docker build -t my-app .
+
+      # Step 3: Tests run karein
+      - name: Run Tests
+        run: docker run my-app npm test
+
+  deploy-to-staging:
+    needs: build-and-test  # Pehle build-and-test complete hona chahiye
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging (Simulated)
+        run: |
+          echo "Yahan aam taur par deployment hoti hai"
+          echo "Example: docker-compose up, kubectl apply, etc."
+          echo "Deployment successful!"
